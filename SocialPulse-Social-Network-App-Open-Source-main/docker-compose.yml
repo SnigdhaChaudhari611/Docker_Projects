@@ -1,0 +1,58 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    expose:
+      - "4173"
+    networks:
+      - socialpulse-net
+
+  backend:
+    build:
+      context: ./API
+    expose:
+      - "8800"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - socialpulse-net
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+    volumes:
+      - mysql:/var/lib/mysql
+      - ./mydevify_social.sql:/docker-entrypoint-initdb.d/mydevify_social.sql
+    networks:
+      - socialpulse-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    networks:
+      - socialpulse-net
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - uploads:/usr/share/nginx/html/uploads:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  mysql:
+  uploads:
+
+networks:
+  socialpulse-net:
